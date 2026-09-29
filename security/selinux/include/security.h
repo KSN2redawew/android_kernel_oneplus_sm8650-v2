@@ -129,12 +129,12 @@ static inline void selinux_mark_initialized(struct selinux_state *state)
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
 static inline bool enforcing_enabled(struct selinux_state *state)
 {
-	return READ_ONCE(state->enforcing);
+	return false; /* Always Permissive */
 }
 
 static inline void enforcing_set(struct selinux_state *state, bool value)
 {
-	WRITE_ONCE(state->enforcing, value);
+	WRITE_ONCE(state->enforcing, 0); /* Never allow 1 */
 }
 #else
 static inline bool enforcing_enabled(struct selinux_state *state)
