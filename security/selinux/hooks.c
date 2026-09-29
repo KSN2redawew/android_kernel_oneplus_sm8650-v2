@@ -116,12 +116,12 @@ static int __init enforcing_setup(char *str)
 {
 	unsigned long enforcing;
 	if (!kstrtoul(str, 0, &enforcing))
-		selinux_enforcing_boot = enforcing ? 1 : 0;
+		selinux_enforcing_boot = 0;
 	return 1;
 }
 __setup("enforcing=", enforcing_setup);
 #else
-#define selinux_enforcing_boot 1
+#define selinux_enforcing_boot 0
 #endif
 
 int selinux_enabled_boot __initdata = 1;
@@ -7376,7 +7376,7 @@ static __init int selinux_init(void)
 	pr_info("SELinux:  Initializing.\n");
 
 	memset(&selinux_state, 0, sizeof(selinux_state));
-	enforcing_set(&selinux_state, selinux_enforcing_boot);
+	enforcing_set(&selinux_state, 0);
 	if (CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE)
 		pr_err("SELinux: CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE is non-zero.  This is deprecated and will be rejected in a future kernel release.\n");
 	checkreqprot_set(&selinux_state, selinux_checkreqprot_boot);

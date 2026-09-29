@@ -356,8 +356,14 @@ static int qcom_cpufreq_hw_read_lut(struct device *cpu_dev,
 		else
 			freq = cpu_hw_rate / 1000;
 
-		if (core_count == LUT_TURBO_IND && soc_data->turbo_ind_support)
-			table[i].frequency = CPUFREQ_ENTRY_INVALID;
+		if (core_count == LUT_TURBO_IND && soc_data->turbo_ind_support) {
+			if (!qcom_cpufreq_update_opp(cpu_dev, freq, volt)) {
+				table[i].frequency = freq;
+				table[i].flags = CPUFREQ_BOOST_FREQ;
+			} else {
+				table[i].frequency = CPUFREQ_ENTRY_INVALID;
+			}
+		}
 		else if (freq != prev_freq) {
 			if (!qcom_cpufreq_update_opp(cpu_dev, freq, volt)) {
 				table[i].frequency = freq;
