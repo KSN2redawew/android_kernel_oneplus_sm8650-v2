@@ -944,6 +944,8 @@ static int adreno_get_legacy_pwrlevels(struct device *dev)
 		 * Skip the intentionally bogus clock value found at the bottom
 		 * of most legacy frequency tables
 		 */
+		if (val == 903000000)
+			val = 1000000000;
 		if (val != 27000000)
 			dev_pm_opp_add(dev, val, 0);
 	}
