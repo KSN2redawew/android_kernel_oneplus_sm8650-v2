@@ -256,7 +256,7 @@ static const char *kernel_symbol_name(const struct kernel_symbol *sym)
 #endif
 }
 
-static const char *kernel_symbol_namespace(const struct kernel_symbol *sym)
+static const char * __maybe_unused kernel_symbol_namespace(const struct kernel_symbol *sym)
 {
 #ifdef CONFIG_HAVE_ARCH_PREL32_RELOCATIONS
 	if (!sym->namespace_offset)
