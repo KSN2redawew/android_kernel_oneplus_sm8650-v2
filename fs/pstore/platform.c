@@ -292,8 +292,8 @@ static void allocate_buf_for_compression(void)
 	if (!IS_ENABLED(CONFIG_PSTORE_COMPRESS) || !zbackend)
 		return;
 
-	/* Skip if no pstore backend yet or compression init already done. */
-	if (!psinfo || tfm)
+	/* Skip if no pstore backend yet, compression init already done, or dmesg dump not supported / bufsize 0. */
+	if (!psinfo || tfm || !psinfo->bufsize || !(psinfo->flags & PSTORE_FLAGS_DMESG))
 		return;
 
 	if (!crypto_has_comp(zbackend->name, 0, 0)) {
@@ -504,7 +504,7 @@ static void pstore_console_write(struct console *con, const char *s, unsigned c)
 
 static struct console pstore_console = {
 	.write	= pstore_console_write,
-	.index	= -1,
+	.index	= 0,
 };
 
 static void pstore_register_console(void)
