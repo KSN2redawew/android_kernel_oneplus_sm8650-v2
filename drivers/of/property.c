@@ -331,14 +331,8 @@ int of_property_read_variable_u32_array(const struct device_node *np,
 		sz /= sizeof(*out_values);
 
 	count = sz;
-	while (count--) {
-		u32 v = be32_to_cpup(val++);
-		if (propname && (!strcmp(propname, "qcom,gpu-freq") || !strcmp(propname, "opp-hz"))) {
-			if (v == 903000000U)
-				v = 1000000000U;
-		}
-		*out_values++ = v;
-	}
+	while (count--)
+		*out_values++ = be32_to_cpup(val++);
 
 	return sz;
 }
@@ -371,10 +365,6 @@ int of_property_read_u64(const struct device_node *np, const char *propname,
 		return PTR_ERR(val);
 
 	*out_value = of_read_number(val, 2);
-	if (propname && (!strcmp(propname, "opp-hz") || !strcmp(propname, "qcom,gpu-freq"))) {
-		if (*out_value == 903000000ULL)
-			*out_value = 1000000000ULL;
-	}
 	return 0;
 }
 EXPORT_SYMBOL_GPL(of_property_read_u64);
@@ -420,12 +410,7 @@ int of_property_read_variable_u64_array(const struct device_node *np,
 
 	count = sz;
 	while (count--) {
-		u64 v = of_read_number(val, 2);
-		if (propname && (!strcmp(propname, "opp-hz") || !strcmp(propname, "qcom,gpu-freq"))) {
-			if (v == 903000000ULL)
-				v = 1000000000ULL;
-		}
-		*out_values++ = v;
+		*out_values++ = of_read_number(val, 2);
 		val += 2;
 	}
 

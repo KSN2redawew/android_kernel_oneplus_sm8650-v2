@@ -98,7 +98,6 @@ struct ramoops_context {
 	unsigned int max_ftrace_cnt;
 	unsigned int ftrace_read_cnt;
 	unsigned int pmsg_read_cnt;
-	bool console_dummy_read;
 	struct pstore_info pstore;
 };
 
@@ -112,7 +111,6 @@ static int ramoops_pstore_open(struct pstore_info *psi)
 	cxt->console_read_cnt = 0;
 	cxt->ftrace_read_cnt = 0;
 	cxt->pmsg_read_cnt = 0;
-	cxt->console_dummy_read = false;
 	return 0;
 }
 
@@ -210,20 +208,8 @@ static ssize_t ramoops_pstore_read(struct pstore_record *record)
 		}
 	}
 
-	if (!prz_ok(prz) && !cxt->console_read_cnt++) {
+	if (!prz_ok(prz) && !cxt->console_read_cnt++)
 		prz = ramoops_get_next_prz(&cxt->cprz, 0 /* single */, record);
-		if (!prz && cxt->cprz && !cxt->console_dummy_read) {
-			cxt->console_dummy_read = true;
-			record->type = PSTORE_TYPE_CONSOLE;
-			record->id = 0;
-			record->time.tv_sec = 0;
-			record->time.tv_nsec = 0;
-			record->compressed = false;
-			record->buf = kstrdup("\n", GFP_KERNEL);
-			if (record->buf)
-				return 1;
-		}
-	}
 
 	if (!prz_ok(prz) && !cxt->pmsg_read_cnt++)
 		prz = ramoops_get_next_prz(&cxt->mprz, 0 /* single */, record);

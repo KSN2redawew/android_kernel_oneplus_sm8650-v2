@@ -806,8 +806,6 @@ static int _read_rate(struct dev_pm_opp *new_opp, struct opp_table *opp_table,
 		 */
 		for (i = 0; i < count; i++) {
 			new_opp->rates[i] = (unsigned long)rates[i];
-			if (new_opp->rates[i] == 903000000UL)
-				new_opp->rates[i] = 1000000000UL;
 
 			/* This will happen for frequencies > 4.29 GHz */
 			WARN_ON(new_opp->rates[i] != rates[i]);
