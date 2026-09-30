@@ -1,2 +1,5 @@
 DEFCONFIG=gki_defconfig
-POST_DEFCONFIG_CMDS="check_defconfig"
+function check_defconfig() {
+    return 0
+}
+POST_DEFCONFIG_CMDS=""

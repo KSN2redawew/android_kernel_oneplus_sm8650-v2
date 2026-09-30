@@ -77,6 +77,9 @@ _ARM_GKI_MODULES_LIST = [
 _ARM64_GKI_MODULES_LIST = [
     # keep sorted
     "arch/arm64/geniezone/gzvm.ko",
+    "drivers/block/zram/zram.ko",
+    "drivers/misc/oplus_power_notifier/oplus_power_notifier.ko",
+    "mm/zsmalloc.ko",
 ]
 
 _RISCV64_GKI_MODULES_LIST = [
