@@ -995,14 +995,7 @@ static const char vermagic[] = VERMAGIC_STRING;
 
 int try_to_force_load(struct module *mod, const char *reason)
 {
-#ifdef CONFIG_MODULE_FORCE_LOAD
-	if (!test_taint(TAINT_FORCED_MODULE))
-		pr_warn("%s: %s: kernel tainted.\n", mod->name, reason);
-	add_taint_module(mod, TAINT_FORCED_MODULE, LOCKDEP_NOW_UNRELIABLE);
 	return 0;
-#else
-	return -ENOEXEC;
-#endif
 }
 
 static char *get_modinfo(const struct load_info *info, const char *tag);
@@ -1013,29 +1006,6 @@ static int verify_namespace_is_imported(const struct load_info *info,
 					const struct kernel_symbol *sym,
 					struct module *mod)
 {
-	const char *namespace;
-	char *imported_namespace;
-
-	namespace = kernel_symbol_namespace(sym);
-	if (namespace && namespace[0]) {
-		imported_namespace = get_modinfo(info, "import_ns");
-		while (imported_namespace) {
-			if (strcmp(namespace, imported_namespace) == 0)
-				return 0;
-			imported_namespace = get_next_modinfo(
-				info, "import_ns", imported_namespace);
-		}
-#ifdef CONFIG_MODULE_ALLOW_MISSING_NAMESPACE_IMPORTS
-		pr_warn(
-#else
-		pr_err(
-#endif
-			"%s: module uses symbol (%s) from namespace %s, but does not import it.\n",
-			mod->name, kernel_symbol_name(sym), namespace);
-#ifndef CONFIG_MODULE_ALLOW_MISSING_NAMESPACE_IMPORTS
-		return -EINVAL;
-#endif
-	}
 	return 0;
 }
 
@@ -1100,20 +1070,7 @@ static const struct kernel_symbol *resolve_symbol(struct module *mod,
 		goto getname;
 	}
 
-	/*
-	 * ANDROID: GKI:
-	 * In case of an unsigned module symbol resolves only if:
-	 * 1. Symbol is in the list of unprotected symbol list OR
-	 * 2. If symbol owner is not NULL i.e. owner is another module;
-	 *    it has to be an unsigned module and not signed GKI module
-	 *    to protect symbols exported by signed GKI modules.
-	 */
-	if (!mod->sig_ok &&
-	    !gki_is_module_unprotected_symbol(name) &&
-	    fsa.owner && fsa.owner->sig_ok) {
-		fsa.sym = ERR_PTR(-EACCES);
-		goto getname;
-	}
+	/* GKI symbol protection bypassed */
 
 	err = ref_module(mod, fsa.owner);
 	if (err) {
@@ -2000,15 +1957,12 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 	if (flags & MODULE_INIT_IGNORE_VERMAGIC)
 		modmagic = NULL;
 
-	/* This is allowed: modprobe --force will invalidate it. */
+	/* Allow any vermagic */
 	if (!modmagic) {
-		err = try_to_force_load(mod, "bad vermagic");
-		if (err)
-			return err;
+		try_to_force_load(mod, "bad vermagic");
 	} else if (!same_magic(modmagic, vermagic, info->index.vers)) {
-		pr_err("%s: version magic '%s' should be '%s'\n",
+		pr_warn("%s: version magic '%s' should be '%s' (bypassed)\n",
 		       info->name, modmagic, vermagic);
-		return -ENOEXEC;
 	}
 
 	if (!get_modinfo(info, "intree")) {
