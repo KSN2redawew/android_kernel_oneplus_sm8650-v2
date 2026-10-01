@@ -277,6 +277,7 @@ static void notrace persistent_ram_update(struct persistent_ram_zone *prz,
 	struct persistent_ram_buffer *buffer = prz->buffer;
 	memcpy_toio(buffer->data + start, s, count);
 	persistent_ram_update_ecc(prz, start, count);
+	wmb();
 }
 
 static int notrace persistent_ram_update_user(struct persistent_ram_zone *prz,
@@ -519,23 +520,23 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 
 	if (prz->buffer->sig == sig) {
 		if (buffer_size(prz) == 0 && buffer_start(prz) == 0) {
-			pr_debug("found existing empty buffer\n");
+			pr_info("ramoops: %s found existing empty buffer\n", prz->label);
 			return 0;
 		}
 
 		if (buffer_size(prz) > prz->buffer_size ||
 		    buffer_start(prz) > buffer_size(prz)) {
-			pr_info("found existing invalid buffer, size %zu, start %zu\n",
-				buffer_size(prz), buffer_start(prz));
+			pr_info("ramoops: %s found existing invalid buffer, size %zu, start %zu\n",
+				prz->label, buffer_size(prz), buffer_start(prz));
 			zap = true;
 		} else {
-			pr_debug("found existing buffer, size %zu, start %zu\n",
-				 buffer_size(prz), buffer_start(prz));
+			pr_info("ramoops: %s found existing buffer, size %zu, start %zu\n",
+				 prz->label, buffer_size(prz), buffer_start(prz));
 			persistent_ram_save_old(prz);
 		}
 	} else {
-		pr_debug("no valid data in buffer (sig = 0x%08x)\n",
-			 prz->buffer->sig);
+		pr_info("ramoops: %s no valid data in buffer (sig = 0x%08x, expected 0x%08x)\n",
+			 prz->label, prz->buffer->sig, sig);
 		prz->buffer->sig = sig;
 		zap = true;
 	}

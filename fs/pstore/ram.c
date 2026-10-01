@@ -131,7 +131,7 @@ ramoops_get_next_prz(struct persistent_ram_zone *przs[], int id,
 		return NULL;
 
 	/* Update old/shadowed buffer. */
-	if (prz->type == PSTORE_TYPE_DMESG)
+	if (prz->type == PSTORE_TYPE_DMESG || prz->type == PSTORE_TYPE_CONSOLE)
 		persistent_ram_save_old(prz);
 
 	if (!persistent_ram_old_size(prz))
@@ -598,9 +598,15 @@ static int ramoops_init_prz(const char *name,
 		return -ENOMEM;
 	}
 
+	u32 prz_flags = 0;
+
+	/* Keep console buffer persistent across reboots; do not zap on boot */
+	if (strcmp(name, "console") != 0)
+		prz_flags |= PRZ_FLAG_ZAP_OLD;
+
 	label = kasprintf(GFP_KERNEL, "ramoops:%s", name);
 	*prz = persistent_ram_new(*paddr, sz, sig, &cxt->ecc_info,
-				  cxt->memtype, PRZ_FLAG_ZAP_OLD, label);
+				  cxt->memtype, prz_flags, label);
 	kfree(label);
 	if (IS_ERR(*prz)) {
 		int err = PTR_ERR(*prz);
