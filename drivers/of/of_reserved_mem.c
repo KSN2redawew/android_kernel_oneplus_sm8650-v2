@@ -114,6 +114,8 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 	}
 
 	nomap = of_get_flat_dt_prop(node, "no-map", NULL) != NULL;
+	if (!nomap && uname && (strstr(uname, "ramoops") || of_flat_dt_is_compatible(node, "ramoops")))
+		nomap = true;
 
 	/* Need adjust the alignment to satisfy the CMA requirement */
 	if (IS_ENABLED(CONFIG_CMA)
@@ -267,6 +269,8 @@ void __init fdt_init_reserved_mem(void)
 		bool nomap;
 
 		nomap = of_get_flat_dt_prop(node, "no-map", NULL) != NULL;
+		if (!nomap && rmem->name && (strstr(rmem->name, "ramoops") || of_flat_dt_is_compatible(node, "ramoops")))
+			nomap = true;
 		prop = of_get_flat_dt_prop(node, "phandle", &len);
 		if (!prop)
 			prop = of_get_flat_dt_prop(node, "linux,phandle", &len);

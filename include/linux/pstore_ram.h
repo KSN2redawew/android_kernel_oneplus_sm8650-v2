@@ -28,6 +28,10 @@
  */
 #define PRZ_FLAG_ZAP_OLD	BIT(1)
 
+#define MEM_TYPE_WCOMBINE	0
+#define MEM_TYPE_NONCACHED	1
+#define MEM_TYPE_NORMAL		2
+
 struct persistent_ram_buffer;
 struct rs_control;
 

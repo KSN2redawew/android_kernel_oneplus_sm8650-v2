@@ -518,6 +518,8 @@ static int __init __reserved_mem_reserve_reg(unsigned long node,
 	}
 
 	nomap = of_get_flat_dt_prop(node, "no-map", NULL) != NULL;
+	if (!nomap && uname && (strstr(uname, "ramoops") || of_flat_dt_is_compatible(node, "ramoops")))
+		nomap = true;
 
 	while (len >= t_len) {
 		base = dt_mem_next_cell(dt_root_addr_cells, &prop);

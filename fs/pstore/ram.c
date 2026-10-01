@@ -774,7 +774,8 @@ static int ramoops_probe(struct platform_device *pdev)
 
 	cxt->size = pdata->mem_size;
 	cxt->phys_addr = pdata->mem_address;
-	cxt->memtype = pdata->mem_type;
+	/* Force write-combine uncached mapping so writes always reach physical DRAM */
+	cxt->memtype = MEM_TYPE_WCOMBINE;
 	cxt->record_size = pdata->record_size;
 	cxt->console_size = pdata->console_size;
 	cxt->ftrace_size = pdata->ftrace_size;
