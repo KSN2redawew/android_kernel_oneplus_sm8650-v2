@@ -3286,12 +3286,10 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	register_restart_handler(&scm->restart_nb);
 
 	/*
-	 * If requested enable "download mode", from this point on warmboot
-	 * will cause the boot stages to enter download mode, unless
-	 * disabled below by a clean shutdown/reboot.
+	 * Disable SDI and ensure NODUMP mode so device never drops into 900E
 	 */
-	if (download_mode)
-		qcom_scm_set_download_mode(QCOM_DOWNLOAD_FULLDUMP, 0);
+	qcom_scm_disable_sdi();
+	qcom_scm_set_download_mode(QCOM_DOWNLOAD_NODUMP, 0);
 
 	return 0;
 }

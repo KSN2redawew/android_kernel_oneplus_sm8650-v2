@@ -275,15 +275,8 @@ static int qcom_wdt_panic_handler(struct notifier_block *this,
 				struct msm_watchdog_data, panic_blk);
 
 	wdog_dd->in_panic = true;
-	if (WDOG_BITE_EARLY_PANIC) {
-		pr_info("Triggering early bite\n");
-		qcom_wdt_trigger_bite();
-	}
-	if (panic_timeout == 0) {
+	if (wdog_dd->ops && wdog_dd->ops->disable_wdt)
 		wdog_dd->ops->disable_wdt(wdog_dd);
-	} else {
-		qcom_wdt_reset_on_oops(wdog_dd, panic_timeout);
-	}
 	return NOTIFY_DONE;
 }
 
@@ -343,16 +336,7 @@ static void qcom_wdt_disable(struct msm_watchdog_data *wdog_dd)
 static int restart_wdog_handler(struct notifier_block *this,
 			       unsigned long event, void *ptr)
 {
-	struct msm_watchdog_data *wdog_dd = container_of(this,
-				struct msm_watchdog_data, restart_blk);
-	if (WDOG_BITE_ON_PANIC && wdog_dd->in_panic) {
-		/*
-		 * Trigger a watchdog bite here and if this fails,
-		 * device will take the usual restart path.
-		 */
-		pr_info("Triggering late bite\n");
-		qcom_wdt_trigger_bite();
-	}
+	/* Never trigger a watchdog bite on panic: allow warm reboot path to proceed */
 	return NOTIFY_DONE;
 }
 
@@ -683,25 +667,8 @@ EXPORT_SYMBOL(qcom_wdt_remove);
  */
 void qcom_wdt_trigger_bite(void)
 {
-	if (!wdog_data)
-		return;
-	compute_irq_count();
-	dev_err(wdog_data->dev, "Causing a QCOM Apps Watchdog bite!\n");
-	wdog_data->ops->show_wdt_status(wdog_data);
-	wdog_data->ops->set_bite_time(1, wdog_data);
-	wdog_data->ops->reset_wdt(wdog_data);
-	/* Delay to make sure bite occurs */
-	mdelay(10000);
-	/*
-	 * This function induces the non-secure bite and control
-	 * should not return to the calling function. Non-secure
-	 * bite interrupt is affined to all the cores and it may
-	 * not be handled by the same cores which configured
-	 * non-secure bite. So add forever loop here.
-	 */
-	while (1)
-		udelay(1);
-
+	pr_err("qcom_wdt: Watchdog bite intercepted! Triggering emergency warm restart instead of 900E\n");
+	emergency_restart();
 }
 EXPORT_SYMBOL(qcom_wdt_trigger_bite);
 
@@ -733,7 +700,7 @@ static irqreturn_t qcom_wdt_bark_handler(int irq, void *dev_id)
     panic("Handle a watchdog bite! - Falling back to kernel panic!");
 #else
 	md_dump_process();
-	qcom_wdt_trigger_bite();
+	panic("Handle a watchdog bite! - Falling back to kernel panic!");
 #endif
 
 	return IRQ_HANDLED;
