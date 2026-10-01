@@ -486,12 +486,41 @@ static void pstore_unregister_kmsg(void)
 	kmsg_dump_unregister(&pstore_dumper);
 }
 
+static bool pstore_is_recovery = false;
+
+static int __init parse_recovery_mode(char *arg)
+{
+	if (arg && strstr(arg, "recovery"))
+		pstore_is_recovery = true;
+	return 0;
+}
+early_param("androidboot.mode", parse_recovery_mode);
+early_param("oplusboot.mode", parse_recovery_mode);
+early_param("bootmode", parse_recovery_mode);
+early_param("androidboot.bootmode", parse_recovery_mode);
+
+bool pstore_is_recovery_boot(void)
+{
+	if (pstore_is_recovery)
+		return true;
+	if (saved_command_line && (strstr(saved_command_line, "mode=recovery") ||
+				   strstr(saved_command_line, "mode=\"recovery\"") ||
+				   strstr(saved_command_line, "bootmode=recovery") ||
+				   strstr(saved_command_line, "androidboot.mode=recovery") ||
+				   strstr(saved_command_line, "oplusboot.mode=recovery") ||
+				   strstr(saved_command_line, "recovery"))) {
+		pstore_is_recovery = true;
+		return true;
+	}
+	return false;
+}
+
 #ifdef CONFIG_PSTORE_CONSOLE
 static void pstore_console_write(struct console *con, const char *s, unsigned c)
 {
 	struct pstore_record record;
 
-	if (!c)
+	if (!c || pstore_is_recovery_boot())
 		return;
 
 	pstore_record_init(&record, psinfo);
@@ -509,6 +538,11 @@ static struct console pstore_console = {
 
 static void pstore_register_console(void)
 {
+	if (pstore_is_recovery_boot()) {
+		pr_info("recovery boot detected, skipping console registration\n");
+		return;
+	}
+
 	/* Show which backend is going to get console writes. */
 	strscpy(pstore_console.name, psinfo->name,
 		sizeof(pstore_console.name));

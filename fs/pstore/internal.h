@@ -44,6 +44,7 @@ extern int	pstore_mkfile(struct dentry *root,
 			      struct pstore_record *record);
 extern void	pstore_record_init(struct pstore_record *record,
 				   struct pstore_info *psi);
+extern bool	pstore_is_recovery_boot(void);
 
 /* Called during pstore init/exit. */
 int __init	pstore_init_fs(void);

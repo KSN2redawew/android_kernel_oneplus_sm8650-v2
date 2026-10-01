@@ -98,7 +98,6 @@ struct ramoops_context {
 	unsigned int max_ftrace_cnt;
 	unsigned int ftrace_read_cnt;
 	unsigned int pmsg_read_cnt;
-	bool console_dummy_read;
 	struct pstore_info pstore;
 };
 
@@ -112,7 +111,6 @@ static int ramoops_pstore_open(struct pstore_info *psi)
 	cxt->console_read_cnt = 0;
 	cxt->ftrace_read_cnt = 0;
 	cxt->pmsg_read_cnt = 0;
-	cxt->console_dummy_read = false;
 	return 0;
 }
 
@@ -210,20 +208,8 @@ static ssize_t ramoops_pstore_read(struct pstore_record *record)
 		}
 	}
 
-	if (!prz_ok(prz) && !cxt->console_read_cnt++) {
+	if (!prz_ok(prz) && !cxt->console_read_cnt++)
 		prz = ramoops_get_next_prz(&cxt->cprz, 0 /* single */, record);
-		if (!prz && cxt->cprz && !cxt->console_dummy_read) {
-			cxt->console_dummy_read = true;
-			record->type = PSTORE_TYPE_CONSOLE;
-			record->id = 0;
-			record->time.tv_sec = 0;
-			record->time.tv_nsec = 0;
-			record->compressed = false;
-			record->buf = kstrdup("\n", GFP_KERNEL);
-			if (record->buf)
-				return 1;
-		}
-	}
 
 	if (!prz_ok(prz) && !cxt->pmsg_read_cnt++)
 		prz = ramoops_get_next_prz(&cxt->mprz, 0 /* single */, record);
@@ -796,10 +782,23 @@ static int ramoops_probe(struct platform_device *pdev)
 	cxt->flags = pdata->flags;
 	cxt->ecc_info = pdata->ecc_info;
 
-	paddr = cxt->phys_addr;
-
 	dump_mem_sz = cxt->size - cxt->console_size - cxt->ftrace_size
 			- cxt->pmsg_size;
+	if (!cxt->record_size || dump_mem_sz < 0x40000) {
+		size_t crash_sz = 0x40000;
+		if (cxt->pmsg_size > crash_sz) {
+			cxt->pmsg_size -= crash_sz;
+			cxt->record_size = crash_sz;
+			dump_mem_sz = cxt->size - cxt->console_size
+					- cxt->ftrace_size - cxt->pmsg_size;
+		}
+	}
+
+	if (!pdata->max_reason)
+		pdata->max_reason = KMSG_DUMP_OOPS;
+
+	paddr = cxt->phys_addr;
+
 	err = ramoops_init_przs("dmesg", dev, cxt, &cxt->dprzs, &paddr,
 				dump_mem_sz, cxt->record_size,
 				&cxt->max_dump_cnt, 0, 0);
