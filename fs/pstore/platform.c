@@ -488,16 +488,37 @@ static void pstore_unregister_kmsg(void)
 
 static bool pstore_is_recovery = false;
 
-static int __init parse_recovery_mode(char *arg)
+static int __init parse_androidboot_mode(char *arg)
 {
 	if (arg && strstr(arg, "recovery"))
 		pstore_is_recovery = true;
 	return 0;
 }
-early_param("androidboot.mode", parse_recovery_mode);
-early_param("oplusboot.mode", parse_recovery_mode);
-early_param("bootmode", parse_recovery_mode);
-early_param("androidboot.bootmode", parse_recovery_mode);
+early_param("androidboot.mode", parse_androidboot_mode);
+
+static int __init parse_oplusboot_mode(char *arg)
+{
+	if (arg && strstr(arg, "recovery"))
+		pstore_is_recovery = true;
+	return 0;
+}
+early_param("oplusboot.mode", parse_oplusboot_mode);
+
+static int __init parse_bootmode(char *arg)
+{
+	if (arg && strstr(arg, "recovery"))
+		pstore_is_recovery = true;
+	return 0;
+}
+early_param("bootmode", parse_bootmode);
+
+static int __init parse_androidboot_bootmode(char *arg)
+{
+	if (arg && strstr(arg, "recovery"))
+		pstore_is_recovery = true;
+	return 0;
+}
+early_param("androidboot.bootmode", parse_androidboot_bootmode);
 
 bool pstore_is_recovery_boot(void)
 {
