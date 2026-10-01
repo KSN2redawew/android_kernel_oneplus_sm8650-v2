@@ -490,7 +490,7 @@ static bool pstore_is_recovery = false;
 
 static int __init parse_androidboot_mode(char *arg)
 {
-	if (arg && strstr(arg, "recovery"))
+	if (arg && !strcmp(arg, "recovery"))
 		pstore_is_recovery = true;
 	return 0;
 }
@@ -498,7 +498,7 @@ early_param("androidboot.mode", parse_androidboot_mode);
 
 static int __init parse_oplusboot_mode(char *arg)
 {
-	if (arg && strstr(arg, "recovery"))
+	if (arg && !strcmp(arg, "recovery"))
 		pstore_is_recovery = true;
 	return 0;
 }
@@ -506,7 +506,7 @@ early_param("oplusboot.mode", parse_oplusboot_mode);
 
 static int __init parse_bootmode(char *arg)
 {
-	if (arg && strstr(arg, "recovery"))
+	if (arg && !strcmp(arg, "recovery"))
 		pstore_is_recovery = true;
 	return 0;
 }
@@ -514,7 +514,7 @@ early_param("bootmode", parse_bootmode);
 
 static int __init parse_androidboot_bootmode(char *arg)
 {
-	if (arg && strstr(arg, "recovery"))
+	if (arg && !strcmp(arg, "recovery"))
 		pstore_is_recovery = true;
 	return 0;
 }
@@ -524,12 +524,12 @@ bool pstore_is_recovery_boot(void)
 {
 	if (pstore_is_recovery)
 		return true;
-	if (saved_command_line && (strstr(saved_command_line, "mode=recovery") ||
-				   strstr(saved_command_line, "mode=\"recovery\"") ||
-				   strstr(saved_command_line, "bootmode=recovery") ||
-				   strstr(saved_command_line, "androidboot.mode=recovery") ||
+	if (saved_command_line && (strstr(saved_command_line, "androidboot.mode=recovery") ||
+				   strstr(saved_command_line, "androidboot.mode=\"recovery\"") ||
 				   strstr(saved_command_line, "oplusboot.mode=recovery") ||
-				   strstr(saved_command_line, "recovery"))) {
+				   strstr(saved_command_line, "oplusboot.mode=\"recovery\"") ||
+				   strstr(saved_command_line, "bootmode=recovery") ||
+				   strstr(saved_command_line, "androidboot.bootmode=recovery"))) {
 		pstore_is_recovery = true;
 		return true;
 	}
@@ -559,11 +559,6 @@ static struct console pstore_console = {
 
 static void pstore_register_console(void)
 {
-	if (pstore_is_recovery_boot()) {
-		pr_info("recovery boot detected, skipping console registration\n");
-		return;
-	}
-
 	/* Show which backend is going to get console writes. */
 	strscpy(pstore_console.name, psinfo->name,
 		sizeof(pstore_console.name));

@@ -39,8 +39,7 @@ struct qcom_dload {
 
 #define QCOM_DOWNLOAD_BOTHDUMP (QCOM_DOWNLOAD_FULLDUMP | QCOM_DOWNLOAD_MINIDUMP)
 
-static bool enable_dump =
-	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
+static bool enable_dump = false;
 static enum qcom_download_mode current_download_mode = QCOM_DOWNLOAD_NODUMP;
 static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_FULLDUMP;
 
@@ -298,8 +297,7 @@ static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 	struct qcom_dload *poweroff = container_of(this, struct qcom_dload,
 						     panic_nb);
 	poweroff->in_panic = true;
-	if (enable_dump)
-		msm_enable_dump_mode(true);
+	set_download_mode(QCOM_DOWNLOAD_NODUMP);
 	return NOTIFY_OK;
 }
 
