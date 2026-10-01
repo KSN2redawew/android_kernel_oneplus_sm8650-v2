@@ -132,7 +132,7 @@ def _define_kernel_build(
 
     Args:
       target: name of main Bazel target (e.g. `kalama_gki`)
-      base_kernel: base kernel to pass into `kernel_build` (e.g. `//msm-kernel:kernel_aarch64`)
+      base_kernel: base kernel to pass into `kernel_build` (e.g. `//common:kernel_aarch64`)
       in_tree_module_list: list of in-tree modules
       dtb_list: device tree blobs expected to be built
       dtbo_list: device tree overlay blobs expected to be built
@@ -331,7 +331,7 @@ def _define_kernel_dist(
       target: name of main Bazel target (e.g. `kalama_gki`)
       msm_target: name of just the platform target (e.g. `kalama`)
       variant: name of just the variant (e.g. `gki`)
-      base_kernel: base kernel to fetch artifacts from (e.g. `//msm-kernel:kernel_aarch64`)
+      base_kernel: base kernel to fetch artifacts from (e.g. `//common:kernel_aarch64`)
       define_abi_targets: boolean determining if ABI targets should be defined
     """
 
@@ -464,10 +464,10 @@ def define_msm_la(
     target = msm_target.replace("_", "-") + "_" + variant.replace("_", "-")
 
     if variant == "consolidate":
-        base_kernel = "//msm-kernel:kernel_aarch64_consolidate"
+        base_kernel = "//common:kernel_aarch64_consolidate"
         define_abi_targets = False
     else:
-        base_kernel = "//msm-kernel:kernel_aarch64"
+        base_kernel = "//common:kernel_aarch64"
         define_abi_targets = True
 
     dtb_list = get_dtb_list(msm_target)
