@@ -86,7 +86,7 @@ struct irq_info {
 	struct irq_desc *desc;
 };
 
-static void compute_irq_count(void)
+static void __maybe_unused compute_irq_count(void)
 {
 	int i, irq, ipi_nr;
 	unsigned int count, diff;
