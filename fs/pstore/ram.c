@@ -769,7 +769,7 @@ static int ramoops_probe(struct platform_device *pdev)
 
 	cxt->size = pdata->mem_size ? pdata->mem_size : 0x240000;
 	cxt->phys_addr = 0x84c00000;
-	cxt->memtype = MEM_TYPE_NORMAL;
+	cxt->memtype = MEM_TYPE_WCOMBINE;
 	cxt->flags = pdata->flags;
 	cxt->ecc_info.ecc_size = 0;
 

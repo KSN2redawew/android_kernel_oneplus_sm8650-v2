@@ -317,8 +317,6 @@ void persistent_ram_save_old(struct persistent_ram_zone *prz)
 	struct persistent_ram_buffer *buffer = prz->buffer;
 	size_t size = buffer_size(prz);
 	size_t start = buffer_start(prz);
-	size_t i;
-	u8 *p;
 
 	if (!size)
 		return;
@@ -333,7 +331,7 @@ void persistent_ram_save_old(struct persistent_ram_zone *prz)
 		start = 0;
 
 	persistent_ram_ecc_old(prz);
-	prz->old_log = kmalloc(size, GFP_KERNEL);
+	prz->old_log = kmalloc(size + 1, GFP_KERNEL);
 	if (!prz->old_log) {
 		pr_err("failed to allocate buffer\n");
 		return;
@@ -341,20 +339,19 @@ void persistent_ram_save_old(struct persistent_ram_zone *prz)
 
 	prz->old_log_size = size;
 
-	if (start <= size) {
+	/*
+	 * If the buffer has wrapped (size == buffer_size and start > 0),
+	 * data from [start .. buffer_size] is older than data from [0 .. start].
+	 * Otherwise, data was written linearly from index 0 up to start (or size).
+	 */
+	if (size == prz->buffer_size && start > 0) {
 		persistent_ram_copy_from(prz->old_log, &buffer->data[start], size - start);
 		persistent_ram_copy_from(prz->old_log + size - start, &buffer->data[0], start);
 	} else {
 		persistent_ram_copy_from(prz->old_log, &buffer->data[0], size);
 	}
 
-	/* Clean up non-ASCII and corrupt control bytes */
-	p = (u8 *)prz->old_log;
-	for (i = 0; i < size; i++) {
-		p[i] &= 0x7f;
-		if (p[i] < 0x20 && p[i] != '\n' && p[i] != '\t' && p[i] != '\r')
-			p[i] = ' ';
-	}
+	((u8 *)prz->old_log)[size] = '\0';
 }
 
 int notrace persistent_ram_write(struct persistent_ram_zone *prz,
