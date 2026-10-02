@@ -129,7 +129,7 @@ ramoops_get_next_prz(struct persistent_ram_zone *przs[], int id,
 		return NULL;
 
 	/* Update old/shadowed buffer. */
-	if (prz->type == PSTORE_TYPE_DMESG || prz->type == PSTORE_TYPE_CONSOLE)
+	if (prz->type == PSTORE_TYPE_DMESG)
 		persistent_ram_save_old(prz);
 
 	if (!persistent_ram_old_size(prz))
@@ -573,6 +573,7 @@ static int ramoops_init_prz(const char *name,
 			    phys_addr_t *paddr, size_t sz, u32 sig)
 {
 	char *label;
+	u32 prz_flags = 0;
 
 	if (!sz)
 		return 0;
@@ -583,12 +584,6 @@ static int ramoops_init_prz(const char *name,
 			cxt->size, (unsigned long long)cxt->phys_addr);
 		return -ENOMEM;
 	}
-
-	u32 prz_flags = 0;
-
-	/* Keep console buffer persistent across reboots; do not zap on boot */
-	if (strcmp(name, "console") != 0)
-		prz_flags |= PRZ_FLAG_ZAP_OLD;
 
 	label = kasprintf(GFP_KERNEL, "ramoops:%s", name);
 	*prz = persistent_ram_new(*paddr, sz, sig, &cxt->ecc_info,
@@ -772,31 +767,20 @@ static int ramoops_probe(struct platform_device *pdev)
 	if (pdata->pmsg_size && !is_power_of_2(pdata->pmsg_size))
 		pdata->pmsg_size = rounddown_pow_of_two(pdata->pmsg_size);
 
-	cxt->size = pdata->mem_size;
-	cxt->phys_addr = pdata->mem_address;
-	/* Force write-combine uncached mapping so writes always reach physical DRAM */
-	cxt->memtype = MEM_TYPE_WCOMBINE;
-	cxt->record_size = pdata->record_size;
-	cxt->console_size = pdata->console_size;
-	cxt->ftrace_size = pdata->ftrace_size;
-	cxt->pmsg_size = pdata->pmsg_size;
+	cxt->size = pdata->mem_size ? pdata->mem_size : 0x240000;
+	cxt->phys_addr = 0x84c00000;
+	cxt->memtype = MEM_TYPE_NORMAL;
 	cxt->flags = pdata->flags;
-	cxt->ecc_info = pdata->ecc_info;
+	cxt->ecc_info.ecc_size = 0;
 
-	dump_mem_sz = cxt->size - cxt->console_size - cxt->ftrace_size
-			- cxt->pmsg_size;
-	if (!cxt->record_size || dump_mem_sz < 0x40000) {
-		size_t crash_sz = 0x40000;
-		if (cxt->pmsg_size > crash_sz) {
-			cxt->pmsg_size -= crash_sz;
-			cxt->record_size = crash_sz;
-			dump_mem_sz = cxt->size - cxt->console_size
-					- cxt->ftrace_size - cxt->pmsg_size;
-		}
-	}
+	/* Allocate partitions strictly within cxt->size (0x240000 = 2304 KiB) */
+	cxt->record_size = 0x40000;   /* 256 KiB dmesg */
+	cxt->console_size = 0x100000; /* 1024 KiB console */
+	cxt->ftrace_size = 0;
+	cxt->pmsg_size = 0x100000;    /* 1024 KiB pmsg */
 
-	if (!pdata->max_reason)
-		pdata->max_reason = KMSG_DUMP_OOPS;
+	dump_mem_sz = cxt->record_size;
+	pdata->max_reason = KMSG_DUMP_OOPS;
 
 	paddr = cxt->phys_addr;
 

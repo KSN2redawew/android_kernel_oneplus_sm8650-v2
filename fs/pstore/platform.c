@@ -486,62 +486,12 @@ static void pstore_unregister_kmsg(void)
 	kmsg_dump_unregister(&pstore_dumper);
 }
 
-static bool pstore_is_recovery = false;
-
-static int __init parse_androidboot_mode(char *arg)
-{
-	if (arg && !strcmp(arg, "recovery"))
-		pstore_is_recovery = true;
-	return 0;
-}
-early_param("androidboot.mode", parse_androidboot_mode);
-
-static int __init parse_oplusboot_mode(char *arg)
-{
-	if (arg && !strcmp(arg, "recovery"))
-		pstore_is_recovery = true;
-	return 0;
-}
-early_param("oplusboot.mode", parse_oplusboot_mode);
-
-static int __init parse_bootmode(char *arg)
-{
-	if (arg && !strcmp(arg, "recovery"))
-		pstore_is_recovery = true;
-	return 0;
-}
-early_param("bootmode", parse_bootmode);
-
-static int __init parse_androidboot_bootmode(char *arg)
-{
-	if (arg && !strcmp(arg, "recovery"))
-		pstore_is_recovery = true;
-	return 0;
-}
-early_param("androidboot.bootmode", parse_androidboot_bootmode);
-
-bool pstore_is_recovery_boot(void)
-{
-	if (pstore_is_recovery)
-		return true;
-	if (saved_command_line && (strstr(saved_command_line, "androidboot.mode=recovery") ||
-				   strstr(saved_command_line, "androidboot.mode=\"recovery\"") ||
-				   strstr(saved_command_line, "oplusboot.mode=recovery") ||
-				   strstr(saved_command_line, "oplusboot.mode=\"recovery\"") ||
-				   strstr(saved_command_line, "bootmode=recovery") ||
-				   strstr(saved_command_line, "androidboot.bootmode=recovery"))) {
-		pstore_is_recovery = true;
-		return true;
-	}
-	return false;
-}
-
 #ifdef CONFIG_PSTORE_CONSOLE
 static void pstore_console_write(struct console *con, const char *s, unsigned c)
 {
 	struct pstore_record record;
 
-	if (!c || pstore_is_recovery_boot())
+	if (!c)
 		return;
 
 	pstore_record_init(&record, psinfo);
@@ -554,7 +504,7 @@ static void pstore_console_write(struct console *con, const char *s, unsigned c)
 
 static struct console pstore_console = {
 	.write	= pstore_console_write,
-	.index	= 0,
+	.index	= -1,
 };
 
 static void pstore_register_console(void)

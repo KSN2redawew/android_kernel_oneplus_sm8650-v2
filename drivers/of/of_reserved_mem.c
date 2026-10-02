@@ -124,6 +124,24 @@ static int __init __reserved_mem_alloc_size(unsigned long node,
 	    && !nomap)
 		align = max_t(phys_addr_t, align, CMA_MIN_ALIGNMENT_BYTES);
 
+	/* Force safe low memory 0x84c00000 for ramoops so DRAM survives reboot without XBL clearing and outside UEFI */
+	if (uname && (strstr(uname, "ramoops") || of_flat_dt_is_compatible(node, "ramoops"))) {
+		base = 0x84c00000;
+		nomap = true;
+		ret = early_init_dt_alloc_reserved_memory_arch(size, align, base, base + size, nomap, &base);
+		if (ret != 0) {
+			if (nomap)
+				ret = memblock_mark_nomap(base, size);
+			else
+				ret = memblock_reserve(base, size);
+		}
+		pr_info("reserved memory: forced safe lowmem for '%s': base 0x%llx, size %lu KiB (ret=%d)\n",
+			uname, (unsigned long long)base, (unsigned long)(size / SZ_1K), ret);
+		*res_base = base;
+		*res_size = size;
+		return 0;
+	}
+
 	prop = of_get_flat_dt_prop(node, "alloc-ranges", &len);
 	if (prop) {
 

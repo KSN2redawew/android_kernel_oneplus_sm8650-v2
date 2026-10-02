@@ -19,6 +19,24 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <asm/page.h>
+#include <asm/cacheflush.h>
+
+static inline void notrace persistent_ram_copy_to(void *to, const void *from, size_t count)
+{
+	u8 *dst = (u8 *)to;
+	const u8 *src = (const u8 *)from;
+	while (count--)
+		*dst++ = *src++;
+}
+
+static inline void notrace persistent_ram_copy_from(void *to, const void *from, size_t count)
+{
+	u8 *dst = (u8 *)to;
+	const u8 *src = (const u8 *)from;
+	while (count--)
+		*dst++ = *src++;
+}
+
 
 /**
  * struct persistent_ram_buffer - persistent circular RAM buffer
@@ -275,9 +293,13 @@ static void notrace persistent_ram_update(struct persistent_ram_zone *prz,
 	const void *s, unsigned int start, unsigned int count)
 {
 	struct persistent_ram_buffer *buffer = prz->buffer;
-	memcpy_toio(buffer->data + start, s, count);
+	persistent_ram_copy_to(buffer->data + start, s, count);
 	persistent_ram_update_ecc(prz, start, count);
-	wmb();
+	dcache_clean_poc((unsigned long)(buffer->data + start),
+			 (unsigned long)(buffer->data + start + count));
+	dcache_clean_poc((unsigned long)buffer,
+			 (unsigned long)(buffer + 1));
+	mb();
 }
 
 static int notrace persistent_ram_update_user(struct persistent_ram_zone *prz,
@@ -295,6 +317,8 @@ void persistent_ram_save_old(struct persistent_ram_zone *prz)
 	struct persistent_ram_buffer *buffer = prz->buffer;
 	size_t size = buffer_size(prz);
 	size_t start = buffer_start(prz);
+	size_t i;
+	u8 *p;
 
 	if (!size)
 		return;
@@ -302,18 +326,35 @@ void persistent_ram_save_old(struct persistent_ram_zone *prz)
 	if (prz->old_log)
 		return;
 
-	if (!prz->old_log) {
-		persistent_ram_ecc_old(prz);
-		prz->old_log = kmalloc(size, GFP_KERNEL);
-	}
+	if (size > prz->buffer_size)
+		size = prz->buffer_size;
+
+	if (start >= prz->buffer_size)
+		start = 0;
+
+	persistent_ram_ecc_old(prz);
+	prz->old_log = kmalloc(size, GFP_KERNEL);
 	if (!prz->old_log) {
 		pr_err("failed to allocate buffer\n");
 		return;
 	}
 
 	prz->old_log_size = size;
-	memcpy_fromio(prz->old_log, &buffer->data[start], size - start);
-	memcpy_fromio(prz->old_log + size - start, &buffer->data[0], start);
+
+	if (start <= size) {
+		persistent_ram_copy_from(prz->old_log, &buffer->data[start], size - start);
+		persistent_ram_copy_from(prz->old_log + size - start, &buffer->data[0], start);
+	} else {
+		persistent_ram_copy_from(prz->old_log, &buffer->data[0], size);
+	}
+
+	/* Clean up non-ASCII and corrupt control bytes */
+	p = (u8 *)prz->old_log;
+	for (i = 0; i < size; i++) {
+		p[i] &= 0x7f;
+		if (p[i] < 0x20 && p[i] != '\n' && p[i] != '\t' && p[i] != '\r')
+			p[i] = ' ';
+	}
 }
 
 int notrace persistent_ram_write(struct persistent_ram_zone *prz,
@@ -470,9 +511,14 @@ static void *persistent_ram_iomap(phys_addr_t start, size_t size,
 		return NULL;
 	}
 
-	if (memtype)
+	if (memtype == MEM_TYPE_NORMAL)
+		va = memremap(start, size, MEMREMAP_WB);
+	else if (memtype == MEM_TYPE_NONCACHED)
 		va = ioremap(start, size);
 	else
+		va = ioremap_wc(start, size);
+
+	if (!va)
 		va = ioremap_wc(start, size);
 
 	/*
@@ -521,22 +567,34 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 
 	sig ^= PERSISTENT_RAM_SIG;
 
-	if (prz->buffer->sig == sig) {
-		if (buffer_size(prz) == 0 && buffer_start(prz) == 0) {
+	bool sig_match = (prz->buffer->sig != 0 && prz->buffer->sig != 0xffffffff) ||
+			 (buffer_start(prz) > 0) ||
+			 (buffer_size(prz) > 0);
+
+	pr_info("ramoops: %s probe check: sig=0x%08x (expected 0x%08x, match=%d), size=%zu, start=%zu\n",
+		prz->label, prz->buffer->sig, sig, sig_match, buffer_size(prz), buffer_start(prz));
+
+	if (sig_match) {
+		prz->buffer->sig = sig;
+		if (buffer_size(prz) == 0) {
 			pr_info("ramoops: %s found existing empty buffer\n", prz->label);
 			return 0;
 		}
 
-		if (buffer_size(prz) > prz->buffer_size ||
-		    buffer_start(prz) > buffer_size(prz)) {
-			pr_info("ramoops: %s found existing invalid buffer, size %zu, start %zu\n",
-				prz->label, buffer_size(prz), buffer_start(prz));
-			zap = true;
-		} else {
-			pr_info("ramoops: %s found existing buffer, size %zu, start %zu\n",
-				 prz->label, buffer_size(prz), buffer_start(prz));
-			persistent_ram_save_old(prz);
+		if (buffer_size(prz) > prz->buffer_size || buffer_size(prz) == 0) {
+			pr_info("ramoops: %s clamping buffer size %zu -> %zu\n",
+				prz->label, buffer_size(prz), prz->buffer_size);
+			atomic_set(&prz->buffer->size, prz->buffer_size);
 		}
+		if (buffer_start(prz) >= prz->buffer_size) {
+			pr_info("ramoops: %s clamping buffer start %zu -> 0\n",
+				prz->label, buffer_start(prz));
+			atomic_set(&prz->buffer->start, 0);
+		}
+
+		pr_info("ramoops: %s found existing buffer, size %zu, start %zu\n",
+			 prz->label, buffer_size(prz), buffer_start(prz));
+		persistent_ram_save_old(prz);
 	} else {
 		pr_info("ramoops: %s no valid data in buffer (sig = 0x%08x, expected 0x%08x)\n",
 			 prz->label, prz->buffer->sig, sig);
